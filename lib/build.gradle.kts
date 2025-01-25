@@ -31,14 +31,6 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
-    testFixtures {
-        enable = true
-    }
-    publishing {
-        singleVariant("release") {
-            withSourcesJar()
-        }
-    }
 }
 
 dependencies {
