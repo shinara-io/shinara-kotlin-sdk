@@ -1,4 +1,5 @@
 plugins {
+    id("maven-publish")
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     kotlin("plugin.serialization") version "1.9.0"
@@ -54,4 +55,17 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+}
+publishing {
+    publications {
+        create<MavenPublication>("release") {
+            groupId = "com.github.shinara-io"
+            artifactId = "shinarakotlinsdk"
+        }
+    }
+    repositories {
+        maven {
+            url = uri("https://jitpack.io") // JitPack URL for hosting your library
+        }
+    }
 }
