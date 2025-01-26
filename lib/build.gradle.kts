@@ -34,6 +34,18 @@ android {
     }
 }
 
+publishing {
+    publications {
+        create<MavenPublication>("release") {
+//            from(components["release"])
+
+            groupId = "com.github.shinara-io"
+            artifactId = "shinara-kotlin-sdk"
+            version = "1.0.6"
+        }
+    }
+}
+
 dependencies {
 
     implementation(libs.androidx.core.ktx)
