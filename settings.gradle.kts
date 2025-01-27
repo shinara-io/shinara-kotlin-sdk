@@ -20,4 +20,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "ShinaraSDK"
-include("lib")
+include("app")
