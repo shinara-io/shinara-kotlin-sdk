@@ -25,6 +25,17 @@ class ShinaraSDK private constructor() {
     }
 
     @Serializable
+    data class TrackingSessionData(
+        @SerialName("session_id") val sessionId: String,
+        @SerialName("user_agent") val userAgent: String,
+        @SerialName("device_model") val deviceModel: String,
+        @SerialName("os_version") val osVersion: String,
+        @SerialName("screen_resolution") val screenResolution: String,
+        val timezone: String,
+        val language: String?
+    )
+
+    @Serializable
     data class KeyValidationResponse(
         @SerialName("app_id") val appId: String,
         @SerialName("track_retention") val trackRetention: Boolean? = null
@@ -80,6 +91,7 @@ class ShinaraSDK private constructor() {
     private val client = OkHttpClient()
     private val json = Json { ignoreUnknownKeys = true }
 
+    private val sdkSetupCompletedKey = "SHINARA_SDK_SETUP_COMPLETED"
     private val referralCodeKey = "SHINARA_SDK_REFERRAL_CODE"
     private val programIdKey = "SHINARA_SDK_PROGRAM_ID"
     private val referralCodeIdKey = "SHINARA_SDK_REFERRAL_CODE_ID"
@@ -103,6 +115,7 @@ class ShinaraSDK private constructor() {
         context = appContext
         this.apiKey = apiKey
         val validationResponse = validateAPIKey()
+        triggerSetup()
         if (validationResponse.trackRetention != null && validationResponse.trackRetention) {
             triggerAppOpen()
         }
@@ -182,6 +195,39 @@ class ShinaraSDK private constructor() {
         }.apply()
 
         programId
+    }
+
+    private suspend fun triggerSetup() = withContext(Dispatchers.IO) {
+        val apiKey = apiKey ?: return@withContext
+
+        if (sharedPreferences.contains(sdkSetupCompletedKey)) {
+            return@withContext
+        }
+
+        val autoSDKGenExternalUserId = sharedPreferences.getString(autoGenUserExternalIdKey, null)
+            ?: UUID.randomUUID().toString().also {
+                sharedPreferences.edit().putString(autoGenUserExternalIdKey, it).apply()
+            }
+
+        val trackingData = getTrackingSessionData(autoSDKGenExternalUserId)
+
+        val requestBody = json.encodeToString(
+            TrackingSessionData.serializer(),
+            trackingData
+        ).toRequestBody("application/json".toMediaType())
+
+        val request = Request.Builder()
+            .url("$baseURL/sdknewtrackingsession")
+            .post(requestBody)
+            .addHeader(apiHeaderKey, apiKey)
+            .addHeader(sdkPlatformHeaderKey, sdkPlatformHeaderValue)
+            .build()
+
+        val response = client.newCall(request).await()
+
+        if (response.isSuccessful) {
+            sharedPreferences.edit().putBoolean("SHINARA_SDK_SETUP_COMPLETED", true).apply()
+        }
     }
 
     private suspend fun triggerAppOpen() = withContext(Dispatchers.IO) {
@@ -343,5 +389,22 @@ class ShinaraSDK private constructor() {
                 }
             })
         }
+    }
+
+    // Add this function inside your ShinaraSDK class
+    private fun getTrackingSessionData(sessionId: String): TrackingSessionData {
+        val displayMetrics = context.resources.displayMetrics
+        val width = (displayMetrics.widthPixels * displayMetrics.density).toInt()
+        val height = (displayMetrics.heightPixels * displayMetrics.density).toInt()
+
+        return TrackingSessionData(
+            sessionId = sessionId,
+            userAgent = "Android ${android.os.Build.VERSION.RELEASE}",
+            deviceModel = android.os.Build.MODEL,
+            osVersion = "Android ${android.os.Build.VERSION.RELEASE}",
+            screenResolution = "${width}x${height}",
+            timezone = TimeZone.getDefault().id,
+            language = Locale.getDefault().language
+        )
     }
 }
